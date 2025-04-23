@@ -9,7 +9,7 @@ https://github.com/Romanitho/Winget-Intune-Packager
 ### APP INFO ###
 
 #Winget Intune Packager version
-$Script:WingetIntunePackager = "1.2.1"
+$Script:WingetIntunePackager = "1.2.2"
 #Winget-Install Github Link
 $Script:WIGithubLink = "https://github.com/Romanitho/Winget-Install/archive/refs/tags/v1.11.3.zip"
 #Winget Intune Packager Icon Base64
@@ -82,6 +82,8 @@ function Start-InstallGUI {
         <TextBox x:Name="IntuneClientIDTextbox" VerticalAlignment="Top" Margin="10,380,0,0" Height="24" VerticalContentAlignment="Center" Width="280" HorizontalAlignment="Left"/>
         <TextBox x:Name="IntuneRedirectUriTextbox" VerticalAlignment="Top" Margin="300,380,0,0" Height="24" VerticalContentAlignment="Center" Width="280" HorizontalAlignment="Left"/>
         <Label x:Name="IntuneRedirectUri" Content="Intune Redirect Uri:" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="5,357,0,0"/>
+        <CheckBox x:Name="AllowUninstallCheckbox" Content="Allow Uninstall ?" HorizontalAlignment="Left" Margin="208,280,0,0" VerticalAlignment="Top"/>
+        <CheckBox x:Name="InstallUserContextCheckbox" Content="Install User Context ?" HorizontalAlignment="Left" Margin="323,280,0,0" VerticalAlignment="Top"/>
 
     </Grid>
 </Window>
@@ -245,6 +247,7 @@ function Start-InstallGUI {
     $CreateButton.add_click({
             Start-PopUp "Creating app to Intune... Please wait"
             $AppConfig = $($AppInfo.id)
+            $InstallUserContext = "system"
             if ($VersionTextBox.Text) {
                 $AppConfig += " --version $($VersionTextBox.Text)"
             }
@@ -255,6 +258,9 @@ function Start-InstallGUI {
             if ($WhitelistCheckbox.IsChecked) {
                 $InstallCmd += " -WAUWhiteList"
             }
+            if ($InstallUserContextCheckbox.IsChecked) {
+                $InstallUserContext = "user"
+            }
             $Win32AppArgs = @{
                 "Description"          = $IntuneDescriptionTextBox.Text
                 "AppVersion"           = $VersionTextBox.Text
@@ -262,6 +268,8 @@ function Start-InstallGUI {
                 "InstallCommandLine"   = $InstallCmd
                 "UninstallCommandLine" = """%systemroot%\sysnative\WindowsPowerShell\v1.0\powershell.exe"" -NoProfile -ExecutionPolicy Bypass -File winget-install.ps1 -AppIDs ""$($AppInfo.id)"" -Uninstall"
                 "Verbose"              = $false
+                "AllowAvailableUninstall" = $AllowUninstallCheckbox.IsChecked
+                "InstallExperience" = $InstallUserContext
             }
             Invoke-IntunePackage $Win32AppArgs
             $AppInfo = @()
@@ -272,6 +280,8 @@ function Start-InstallGUI {
             $OverrideTextBox.Text = ""
             $IntuneDescriptionTextBox.Text = ""
             $WhitelistCheckbox.IsChecked = $false
+            $AllowUninstallCheckbox.IsChecked = $false
+            $InstallUserContextCheckbox.IsChecked = $false
             $CreateButton.IsEnabled = $false
             $AppIcon.Source = $null
             Close-PopUp
@@ -545,7 +555,6 @@ function Invoke-IntunePackage ($Win32AppArgs) {
     # Add parameters to table for the Win32 app
     $Win32AppArgs.DisplayName = $AppInfo.PackageName
     $Win32AppArgs.FilePath = $Win32AppPackagePath
-    $Win32AppArgs.InstallExperience = "system"
     $Win32AppArgs.RestartBehavior = "suppress"
     $Win32AppArgs.DetectionRule = $DetectionRule
     $Win32AppArgs.RequirementRule = $RequirementRule
