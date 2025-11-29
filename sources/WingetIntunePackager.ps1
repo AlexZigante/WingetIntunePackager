@@ -3,15 +3,15 @@
 Package Winget App to Intune with Winget-Install
 
 .DESCRIPTION
-https://github.com/Romanitho/Winget-Intune-Packager
+https://github.com/AlexZigante/Winget-Intune-Packager
 #>
 
 ### APP INFO ###
 
 #Winget Intune Packager version
-$Script:WingetIntunePackager = "1.2.2"
+$Script:WingetIntunePackager = "0.1az"
 #Winget-Install Github Link
-$Script:WIGithubLink = "https://github.com/Romanitho/Winget-Install/archive/refs/tags/v1.11.3.zip"
+$Script:WIGithubLink = "https://github.com/AlexZigante/Winget-Install/archive/refs/heads/main.zip"
 #Winget Intune Packager Icon Base64
 $Script:IconBase64 = [Convert]::FromBase64String("AAABAAEAEBAAAAAAAABoBAAAFgAAACgAAAAQAAAAIAAAAAEAIAAAAAAAQAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAUKEUwPHjCLECAzkRAgM5EQIDORECAzkRAgM5EQIDORECAzkRAgM5EPHjCOBQoRXwAAABQAAAAAAAAAABUoPpAyYZv9NWaj/zVmpP81ZqT/NWak/zVmpP81ZqT/NWak/zVmpP81ZqT/NWaj/zJgmv0TJDmtAAAAFAkQGC01ZZ/9MGWh/yFfl/8oY5z/IV+X/y5loP81aKT/W4S1/8XKz/+5vcL/ub3C/7m9wv99lLH/KU56/QYKD1wgOVZcOGyn/zFpov8eX5X/Lmeg/x5flf8vaKH/OGyn/2GKuf+2trb/n5+f/5+fn/+Tk5P/Z3uS/ypTf/8QHi2LJURjXzpxqv85cKn/Kmie/zlxqv8raJ//OHCo/zpxqv9Tg7X/obbM/5uxxv+QobP/d4eX/1Z0kv8sVoL/EiEwjCdHZl88daz/PHWs/zx1rP88daz/PHWs/zx1rP88daz/PHWs/zx1rP82apv/LlqE/y5ZhP8uWYT/LlmE/xMjMosrTGpfPnqv/z56r/8+eq//Pnqv/z56r/8+eq//Pnqv/z56r/84bp7/L12G/y9dhv8vXYb/L12G/y9dhv8VJTSKL1FtX0B/sv9Af7L/QH+y/0B/sv9Af7L/QH+y/0B/sv86cqD/MWGI/zFhiP8xYYj/MWGI/zFhiP8xYYj/Fyc1iTNWcF9DhLX/Q4S1/0OEtf9DhLX/Q4S1/0OEtf88dqL/M2SK/zNkiv8zZIr/M2SK/zNkiv8zZIr/M2SK/xkqN4g4WnJfRYi3/0WIt/9FiLf/RYi3/0WIt/9Girj/U5i3/1edu/83a4//NWiM/zVojP81aIz/NWiM/zdulP8fNUSHPF91X0eNuv9Hjbr/R426/0eNuv9Hjbr/SI67/1igvv9cpsP/OW+R/zZsjv82bI7/NmyO/zlylv9Girb/IzpIhUBjd19Jkb3/SZG9/0mRvf9Jkb3/SZG9/0uTvf9Yob7/XafD/zpyk/84b5D/OG+Q/zt1mP9Ij7n/SZG9/yU8SoRHaHpbS5a//0uWv/9Llr//S5a//0uWv/9Nl8D/WaO//12oxP88dpX/OXOS/z15mv9Kk7v/S5a//0uWv/8oPUl9QFRfIVuixvtOm8L/TpvC/06bwv9Om8L/T5zC/1mkwP9eqcX/PXmX/z58nP9Ml77/TpvC/06bwv9ZoMT8ExkdPwAAAAB4obZsY6jK+0+dw/9OnMP/TpzD/1Cdw/9apMD/XqnF/0GBn/9Nmb//TpzD/0+dw/9hpcf8OlFchQAAAAIAAAAAAAAAAEpdZyFhfIlbYXyKX2F8il9ifYpfZX+JX2eBil9he4hfYnyKX2J8il9bc39cHiYqKQAAAAAAAAAAgAEAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAwAMAAA==")
 #Temp folder
@@ -53,7 +53,7 @@ function Start-InstallGUI {
         <Button x:Name="CloseButton" Content="Close" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,10" Width="90" Height="24"/>
         <Button x:Name="CreateButton" Content="Create" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,105,10" Width="90" Height="24" IsEnabled="False"/>
         <TextBlock x:Name="GithubLinkLabel" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="10,0,0,14">
-            <Hyperlink NavigateUri="https://github.com/Romanitho/WingetIntunePackager">We are on GitHub</Hyperlink>
+            <Hyperlink NavigateUri="https://github.com/AlexZigante/WingetIntunePackager">We are on GitHub</Hyperlink>
         </TextBlock>
         <Label x:Name="VersionLabel" Content="[Optional] Specify version (--version):" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="360,70,0,0"/>
         <TextBox x:Name="VersionTextBox" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="360,96,0,0" Width="220" Height="24" VerticalContentAlignment="Center"/>
@@ -68,7 +68,7 @@ function Start-InstallGUI {
         </Label>
         <CheckBox x:Name="WhitelistCheckbox" Content="Add to WAU WhiteList ?" HorizontalAlignment="Left" Margin="10,280,0,0" VerticalAlignment="Top"/>
         <Label x:Name="HelpWhitelistLabel" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="162,274,0,0">
-            <Hyperlink NavigateUri="https://github.com/Romanitho/Winget-AutoUpdate#configurations">
+            <Hyperlink NavigateUri="https://github.com/AlexZigante/Winget-AutoUpdate#configurations">
                 <Run Text="Help?"/>
             </Hyperlink>
         </Label>
@@ -237,7 +237,7 @@ function Start-InstallGUI {
         })
 
     $HelpWhitelistLabel.Add_PreviewMouseDown({
-            [System.Diagnostics.Process]::Start("https://github.com/Romanitho/Winget-AutoUpdate#configurations")
+            [System.Diagnostics.Process]::Start("https://github.com/AlexZigante/Winget-AutoUpdate#configurations")
         })
 
     $HelpTenantIDLabel.Add_PreviewMouseDown({
@@ -288,7 +288,7 @@ function Start-InstallGUI {
         })
 
     $GithubLinkLabel.Add_PreviewMouseDown({
-            [System.Diagnostics.Process]::Start("https://github.com/Romanitho/WingetIntunePackager")
+            [System.Diagnostics.Process]::Start("https://github.com/AlexZigante/WingetIntunePackager")
         })
 
     $CloseButton.add_click({
@@ -582,7 +582,7 @@ function Get-WIPLatestVersion {
     ### FORM CREATION ###
 
     #Get latest stable info
-    $WIPurl = 'https://api.github.com/repos/Romanitho/WingetIntunePackager/releases/latest'
+    $WIPurl = 'https://api.github.com/repos/AlexZigante/WingetIntunePackager/releases/latest'
     $WIPLatestVersion = ((Invoke-WebRequest $WIPurl -UseBasicParsing | ConvertFrom-Json)[0].tag_name).Replace("v", "")
 
     if ([version]$WingetIntunePackager -lt [version]$WIPLatestVersion) {
@@ -627,7 +627,7 @@ function Get-WIPLatestVersion {
 
         $GithubButton.add_click({
                 $UpdateWindow.Topmost = $false
-                [System.Diagnostics.Process]::Start("https://github.com/Romanitho/WingetIntunePackager/releases")
+                [System.Diagnostics.Process]::Start("https://github.com/AlexZigante/WingetIntunePackager/releases")
             })
 
         $DownloadButton.add_click({
@@ -637,7 +637,7 @@ function Get-WIPLatestVersion {
                 $response = $WIPSaveFile.ShowDialog() # $response can return OK or Cancel
                 if ( $response -eq 'OK' ) {
                     Start-PopUp "Downloading Winget Intune Packager $WIPLatestVersion..."
-                    $WIPDlLink = "https://github.com/Romanitho/WingetIntunePackager/releases/download/v$WIPLatestVersion/WingetIntunePackager.exe"
+                    $WIPDlLink = "https://github.com/AlexZigante/WingetIntunePackager/releases/download/v$WIPLatestVersion/WingetIntunePackager.exe"
                     Invoke-WebRequest -Uri $WIPDlLink -OutFile $WIPSaveFile.FileName -UseBasicParsing
                     $UpdateWindow.DialogResult = [System.Windows.Forms.DialogResult]::OK
                     $UpdateWindow.Close()
