@@ -9,7 +9,7 @@ https://github.com/AlexZigante/Winget-Intune-Packager
 ### APP INFO ###
 
 #Winget Intune Packager version
-$Script:WingetIntunePackager = "0.1az"
+$Script:WingetIntunePackager = "0.0.1"
 #Winget-Install Github Link
 $Script:WIGithubLink = "https://github.com/AlexZigante/Winget-Install/archive/refs/heads/main.zip"
 #Winget Intune Packager Icon Base64
