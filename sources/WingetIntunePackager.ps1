@@ -6,14 +6,37 @@ Package Winget App to Intune with Winget-Install
 https://github.com/AlexZigante/Winget-Intune-Packager
 #>
 
+
+function Get-WIPCustomReturnCodes {
+    <#
+        Returns custom return code tables to be merged with the
+        default Intune Win32 app return codes. The default set
+        (0, 1707, 3010, 1641, 1618) is always added by the
+        IntuneWin32App module, so here we only add our custom
+        WIP-specific failures that are produced by winget-install.ps1.
+    #>
+    $codes = @()
+
+    if (Get-Command -Name New-IntuneWin32AppReturnCode -ErrorAction SilentlyContinue) {
+        $codes += New-IntuneWin32AppReturnCode -ReturnCode 1000 -Type failed  # Unknown fatal error
+        $codes += New-IntuneWin32AppReturnCode -ReturnCode 1001 -Type failed  # winget.exe not found
+        $codes += New-IntuneWin32AppReturnCode -ReturnCode 1002 -Type failed  # Script precondition/parameter error
+        $codes += New-IntuneWin32AppReturnCode -ReturnCode 1003 -Type failed  # WinGet INSTALL failed
+        $codes += New-IntuneWin32AppReturnCode -ReturnCode 1004 -Type failed  # Post-install mod script error
+        $codes += New-IntuneWin32AppReturnCode -ReturnCode 1005 -Type failed  # WinGet UNINSTALL failed
+    }
+
+    return $codes
+}
+
+return $codes
+}
+
+
 ### APP INFO ###
 
 #Winget Intune Packager version
-$Script:WingetIntunePackager = "0.0.2"
-$Script:WingetIntunePackager = "0.0.1"
-=======
 $Script:WingetIntunePackager = "0.2"
->>>>>>> Stashed changes
 #Winget-Install Github Link
 $Script:WIGithubLink = "https://github.com/AlexZigante/Winget-Install/archive/refs/heads/main.zip"
 #Winget Intune Packager Icon Base64
@@ -274,6 +297,7 @@ function Start-InstallGUI {
                 "Verbose"              = $false
                 "AllowAvailableUninstall" = $AllowUninstallCheckbox.IsChecked
                 "InstallExperience" = $InstallUserContext
+                "ReturnCode"          = Get-WIPCustomReturnCodes
             }
             Invoke-IntunePackage $Win32AppArgs
             $AppInfo = @()
