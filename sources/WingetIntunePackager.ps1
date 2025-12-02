@@ -9,7 +9,7 @@ https://github.com/AlexZigante/Winget-Intune-Packager
 
 function Get-WIPCustomReturnCodes {
     <#
-        Returns custom return code tables to be merged with the
+$Script:WingetIntunePackager = "0.0.3"
         default Intune Win32 app return codes. The default set
         (0, 1707, 3010, 1641, 1618) is always added by the
         IntuneWin32App module, so here we only add our custom
