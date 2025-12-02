@@ -9,7 +9,7 @@ https://github.com/AlexZigante/Winget-Intune-Packager
 ### APP INFO ###
 
 #Winget Intune Packager version
-<<<<<<< Updated upstream
+$Script:WingetIntunePackager = "0.0.2"
 $Script:WingetIntunePackager = "0.0.1"
 =======
 $Script:WingetIntunePackager = "0.2"
