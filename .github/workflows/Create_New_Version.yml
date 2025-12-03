@@ -40,7 +40,7 @@ jobs:
           
       - name: Update Powershell Version
         #Replace line 12 with new version
-        run: sed -i '39s/.*/$Script:WingetIntunePackager = "${{ steps.versioning.outputs.version }}"/g' sources/WingetIntunePackager.ps1
+        run: sed -i "0,/^\$Script:WingetIntunePackager[[:space:]]*=[[:space:]]*\".*\"/s//\$Script:WingetIntunePackager = \"${{ steps.versioning.outputs.version }}\"/" sources/WingetIntunePackager.ps1
 
       - name: Commit & Push
         uses: actions-js/push@v1.4
