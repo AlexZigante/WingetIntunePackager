@@ -36,7 +36,7 @@ return $codes
 ### APP INFO ###
 
 #Winget Intune Packager version
-$Script:WingetIntunePackager = "0.0.4"
+$Script:WingetIntunePackager = "0.0.5"
 #Winget-Install Github Link
 $Script:WIGithubLink = "https://github.com/AlexZigante/Winget-Install/archive/refs/heads/main.zip"
 #Winget Intune Packager Icon Base64
