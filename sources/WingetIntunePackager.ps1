@@ -33,7 +33,7 @@ function Get-WIPCustomReturnCodes {
 ### APP INFO ###
 
 #Winget Intune Packager version
-$Script:WingetIntunePackager = "0.0.5"
+$Script:WingetIntunePackager = "0.0.6"
 #Winget-Install Github Link
 $Script:WIGithubLink = "https://github.com/AlexZigante/Winget-Install/archive/refs/heads/main.zip"
 #Winget Intune Packager Icon Base64
