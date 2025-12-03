@@ -29,9 +29,6 @@ function Get-WIPCustomReturnCodes {
     return $codes
 }
 
-return $codes
-}
-
 
 ### APP INFO ###
 
