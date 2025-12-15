@@ -472,10 +472,10 @@ function Get-WingetAppInfo ($AppID, $AppVersion) {
     #Search for winget apps
     try {
         if ($AppVersion) {
-            $AppResult = & $Winget show $AppID --source winget --version $AppVersion --accept-source-agreements --accept-package-agreements 2>&1
+            $AppResult = & $Winget show $AppID --source winget --version $AppVersion --accept-source-agreements 2>&1
         }
         else {
-            $AppResult = & $Winget show $AppID --source winget --accept-source-agreements --accept-package-agreements 2>&1
+            $AppResult = & $Winget show $AppID --source winget --accept-source-agreements 2>&1
         }
     }
     catch {
