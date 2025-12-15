@@ -470,11 +470,17 @@ function Get-WingetAppInfo ($AppID, $AppVersion) {
     $Script:AppInfo = @{}
 
     #Search for winget apps
-    if ($AppVersion) {
-        $AppResult = & $Winget show $AppID --source winget --version $AppVersion --accept-source-agreements
+    try {
+        if ($AppVersion) {
+            $AppResult = & $Winget show $AppID --source winget --version $AppVersion --accept-source-agreements --accept-package-agreements 2>&1
+        }
+        else {
+            $AppResult = & $Winget show $AppID --source winget --accept-source-agreements --accept-package-agreements 2>&1
+        }
     }
-    else {
-        $AppResult = & $Winget show $AppID --source winget --accept-source-agreements
+    catch {
+        Write-Host "Error while querying winget for '$AppID': $($_.Exception.Message)"
+        return
     }
 
     #Check if App and Version exists
