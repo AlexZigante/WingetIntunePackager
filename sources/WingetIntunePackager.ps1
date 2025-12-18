@@ -29,11 +29,10 @@ function Get-WIPCustomReturnCodes {
     return $codes
 }
 
-
 ### APP INFO ###
 
 #Winget Intune Packager version
-$Script:WingetIntunePackager = "0.0.8"
+$Script:WingetIntunePackager = "0.0.4"
 #Winget-Install Github Link
 $Script:WIGithubLink = "https://github.com/AlexZigante/Winget-Install/archive/refs/heads/main.zip"
 #Winget Intune Packager Icon Base64
@@ -470,17 +469,11 @@ function Get-WingetAppInfo ($AppID, $AppVersion) {
     $Script:AppInfo = @{}
 
     #Search for winget apps
-    try {
-        if ($AppVersion) {
-            $AppResult = & $Winget show $AppID --source winget --version $AppVersion --accept-source-agreements 2>&1
-        }
-        else {
-            $AppResult = & $Winget show $AppID --source winget --accept-source-agreements 2>&1
-        }
+    if ($AppVersion) {
+        $AppResult = & $Winget show $AppID --source winget --version $AppVersion --accept-source-agreements
     }
-    catch {
-        Write-Host "Error while querying winget for '$AppID': $($_.Exception.Message)"
-        return
+    else {
+        $AppResult = & $Winget show $AppID --source winget --accept-source-agreements
     }
 
     #Check if App and Version exists
@@ -563,7 +556,30 @@ function Invoke-IntunePackage ($Win32AppArgs) {
     $DetectionScriptPath = (Get-Item "$Location\Winget-Install*").FullName
     $DetectionScriptFile = "winget-detect.ps1"
     $DetectionScriptContent = Get-Content "$DetectionScriptPath\$DetectionScriptFile"
-    $DetectionScriptContent[1] = '$AppToDetect = "' + $($AppInfo.id) + '"'
+
+    # Replace only the first matching $AppToDetect line
+    $appLineIndex = ($DetectionScriptContent | Select-String -Pattern "^\s*\$AppToDetect\s*=" | Select-Object -First 1).LineNumber
+    if ($appLineIndex) {
+        $DetectionScriptContent[$appLineIndex - 1] = '$AppToDetect = "' + $($AppInfo.id) + '"'
+    }
+    else {
+        # Insert near top if missing
+        $DetectionScriptContent = @('$AppToDetect = ""') + $DetectionScriptContent
+        $DetectionScriptContent[0] = '$AppToDetect = "' + $($AppInfo.id) + '"'
+    }
+
+    # Replace only the first matching $ExpectedVersion line
+    $verLineIndex = ($DetectionScriptContent | Select-String -Pattern "^\s*\$ExpectedVersion\s*=" | Select-Object -First 1).LineNumber
+    $verValue = if ($VersionTextBox.Text) { $VersionTextBox.Text } else { "" }
+    if ($verLineIndex) {
+        $DetectionScriptContent[$verLineIndex - 1] = '$ExpectedVersion = "' + $verValue + '"'
+    }
+    else {
+        # Insert right after $AppToDetect line if missing
+        $insertAt = if ($appLineIndex) { $appLineIndex } else { 1 }
+        $DetectionScriptContent = $DetectionScriptContent[0..($insertAt - 1)] + @('$ExpectedVersion = "' + $verValue + '"' ) + $DetectionScriptContent[$insertAt..($DetectionScriptContent.Count - 1)]
+    }
+
     $DetectionScriptContent | Set-Content -Path "$DetectionScriptPath\$DetectionScriptFile" -Force
     $IntuneWinFile = "$DetectionScriptPath\winget-install.intunewin"
     if (!(Test-Path $IntuneWinFile)) {
