@@ -214,13 +214,6 @@ function Start-InstallGUI {
     $LoadConfigButton.add_click({
         #Try to load configuration
         try {
-            # $ScriptPath
-            # if ($MyInvocation.MyCommand.CommandType -eq "ExternalScript"){
-            #     $ScriptPath = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition }
-            # else { 
-            #     $ScriptPath = Split-Path -Parent -Path ([Environment]::GetCommandLineArgs()[0]) 
-            #     if (!$ScriptPath){ $ScriptPath = "." } 
-            # }
             $config = Get-Content -Path .\config.env | ConvertFrom-StringData
         }
         catch {
@@ -555,7 +548,46 @@ function Invoke-IntunePackage ($Win32AppArgs) {
     }
     $DetectionScriptPath = (Get-Item "$Location\Winget-Install*").FullName
     $DetectionScriptFile = "winget-detect.ps1"
-    $DetectionScriptContent = Get-Content "$DetectionScriptPath\$DetectionScriptFile"
+    $DetectionScriptFullPath = Join-Path $DetectionScriptPath $DetectionScriptFile
+
+    # Keep a pristine template so repeated runs don't mangle the detection script
+    $TemplateFile = "winget-detect.template.ps1"
+    $TemplatePath = Join-Path $DetectionScriptPath $TemplateFile
+
+    if (-not (Test-Path $TemplatePath)) {
+        # If the current detect file looks already edited/mangled, re-download Winget-Install once to recover a clean copy
+        $needRedownload = $false
+        if (Test-Path $DetectionScriptFullPath) {
+            try {
+                $raw = Get-Content -Path $DetectionScriptFullPath -ErrorAction Stop
+                $firstNonEmpty = ($raw | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1)
+                if ($null -eq $firstNonEmpty -or ($firstNonEmpty -notmatch '^\s*#\s*Winget Detect')) { $needRedownload = $true }
+                if (($raw | Select-String -Pattern '^\s*\$AppToDetect\s*=').Count -gt 1) { $needRedownload = $true }
+                if (($raw | Select-String -Pattern '^\s*\$ExpectedVersion\s*=').Count -gt 1) { $needRedownload = $true }
+                if ($raw -notmatch 'PLACEHOLDER') { $needRedownload = $true }
+            }
+            catch {
+                $needRedownload = $true
+            }
+        }
+        else {
+            $needRedownload = $true
+        }
+
+        if ($needRedownload) {
+            try { Remove-Item -Path $DetectionScriptPath -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+            Get-GithubRepository $WIGithubLink
+            $DetectionScriptPath = (Get-Item "$Location\Winget-Install*").FullName
+            $DetectionScriptFullPath = Join-Path $DetectionScriptPath $DetectionScriptFile
+            $TemplatePath = Join-Path $DetectionScriptPath $TemplateFile
+        }
+
+        # Create the template from a clean repo copy
+        Copy-Item -Path $DetectionScriptFullPath -Destination $TemplatePath -Force
+    }
+
+    # Always generate a fresh, per-app detection script from the template (never modify the repo file in-place)
+    $DetectionScriptContent = Get-Content -Path $TemplatePath
 
     # Replace only the first matching $AppToDetect line
     $appLineIndex = ($DetectionScriptContent | Select-String -Pattern "^\s*\$AppToDetect\s*=" | Select-Object -First 1).LineNumber
@@ -563,9 +595,8 @@ function Invoke-IntunePackage ($Win32AppArgs) {
         $DetectionScriptContent[$appLineIndex - 1] = '$AppToDetect = "' + $($AppInfo.id) + '"'
     }
     else {
-        # Insert near top if missing
-        $DetectionScriptContent = @('$AppToDetect = ""') + $DetectionScriptContent
-        $DetectionScriptContent[0] = '$AppToDetect = "' + $($AppInfo.id) + '"'
+        $DetectionScriptContent = @('$AppToDetect = "' + $($AppInfo.id) + '"') + $DetectionScriptContent
+        $appLineIndex = 1
     }
 
     # Replace only the first matching $ExpectedVersion line
@@ -575,12 +606,12 @@ function Invoke-IntunePackage ($Win32AppArgs) {
         $DetectionScriptContent[$verLineIndex - 1] = '$ExpectedVersion = "' + $verValue + '"'
     }
     else {
-        # Insert right after $AppToDetect line if missing
         $insertAt = if ($appLineIndex) { $appLineIndex } else { 1 }
         $DetectionScriptContent = $DetectionScriptContent[0..($insertAt - 1)] + @('$ExpectedVersion = "' + $verValue + '"' ) + $DetectionScriptContent[$insertAt..($DetectionScriptContent.Count - 1)]
     }
 
-    $DetectionScriptContent | Set-Content -Path "$DetectionScriptPath\$DetectionScriptFile" -Force
+    $GeneratedDetectPath = Join-Path $DetectionScriptPath "winget-detect.generated.ps1"
+    $DetectionScriptContent | Set-Content -Path $GeneratedDetectPath -Force
     $IntuneWinFile = "$DetectionScriptPath\winget-install.intunewin"
     if (!(Test-Path $IntuneWinFile)) {
         $Win32AppPackage = New-IntuneWin32AppPackage -SourceFolder $DetectionScriptPath -SetupFile "winget-install.ps1" -OutputFolder $DetectionScriptPath
@@ -594,7 +625,7 @@ function Invoke-IntunePackage ($Win32AppArgs) {
     $RequirementRule = New-IntuneWin32AppRequirementRule -Architecture "All" -MinimumSupportedWindowsRelease "W10_1607"
 
     # Create MSI detection rule
-    $DetectionRule = New-IntuneWin32AppDetectionRuleScript -ScriptFile "$DetectionScriptPath\$DetectionScriptFile"
+    $DetectionRule = New-IntuneWin32AppDetectionRuleScript -ScriptFile $GeneratedDetectPath
 
     # Convert image file to icon
     $Icon = New-IntuneWin32AppIcon -FilePath $AppInfo.Icon
@@ -621,7 +652,14 @@ function Invoke-IntunePackage ($Win32AppArgs) {
         $Win32AppArgs.Icon = $Icon
     }
 
-    Add-IntuneWin32App @Win32AppArgs
+    try {
+        Add-IntuneWin32App @Win32AppArgs
+    }
+    finally {
+        # Restore pristine detect script for the next run and remove generated file
+        try { if (Test-Path $TemplatePath) { Copy-Item -Path $TemplatePath -Destination $DetectionScriptFullPath -Force } } catch {}
+        try { if (Test-Path $GeneratedDetectPath) { Remove-Item -Path $GeneratedDetectPath -Force -ErrorAction SilentlyContinue } } catch {}
+    }
 }
 
 function Get-WIPLatestVersion {
