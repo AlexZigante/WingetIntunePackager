@@ -588,27 +588,37 @@ function Invoke-IntunePackage ($Win32AppArgs) {
 
     # Always generate a fresh, per-app detection script from the template (never modify the repo file in-place)
     $DetectionScriptContent = Get-Content -Path $TemplatePath
+# Replace template placeholders for this run (do not prepend/append new lines)
+$verValue = if ($VersionTextBox.Text) { $VersionTextBox.Text } else { "" }
 
-    # Replace only the first matching $AppToDetect line
-    $appLineIndex = ($DetectionScriptContent | Select-String -Pattern "^\s*\$AppToDetect\s*=" | Select-Object -First 1).LineNumber
+$foundApp = $false
+$foundVer = $false
+
+for ($i = 0; $i -lt $DetectionScriptContent.Count; $i++) {
+    if ($DetectionScriptContent[$i] -match '^\s*\$AppToDetect\s*=\s*"PLACEHOLDER"\s*$') {
+        $DetectionScriptContent[$i] = '$AppToDetect = "' + $($AppInfo.id) + '"'
+        $foundApp = $true
+    }
+    if ($DetectionScriptContent[$i] -match '^\s*\$ExpectedVersion\s*=\s*"PLACEHOLDER_VERSION"\s*$') {
+        $DetectionScriptContent[$i] = '$ExpectedVersion = "' + $verValue + '"'
+        $foundVer = $true
+    }
+}
+
+# Fallback: if placeholders are not present (unexpected), replace the first assignment lines
+if (-not $foundApp) {
+    $appLineIndex = ($DetectionScriptContent | Select-String -Pattern '^\s*\$AppToDetect\s*=' | Select-Object -First 1).LineNumber
     if ($appLineIndex) {
         $DetectionScriptContent[$appLineIndex - 1] = '$AppToDetect = "' + $($AppInfo.id) + '"'
     }
-    else {
-        $DetectionScriptContent = @('$AppToDetect = "' + $($AppInfo.id) + '"') + $DetectionScriptContent
-        $appLineIndex = 1
-    }
+}
 
-    # Replace only the first matching $ExpectedVersion line
-    $verLineIndex = ($DetectionScriptContent | Select-String -Pattern "^\s*\$ExpectedVersion\s*=" | Select-Object -First 1).LineNumber
-    $verValue = if ($VersionTextBox.Text) { $VersionTextBox.Text } else { "" }
+if (-not $foundVer) {
+    $verLineIndex = ($DetectionScriptContent | Select-String -Pattern '^\s*\$ExpectedVersion\s*=' | Select-Object -First 1).LineNumber
     if ($verLineIndex) {
         $DetectionScriptContent[$verLineIndex - 1] = '$ExpectedVersion = "' + $verValue + '"'
     }
-    else {
-        $insertAt = if ($appLineIndex) { $appLineIndex } else { 1 }
-        $DetectionScriptContent = $DetectionScriptContent[0..($insertAt - 1)] + @('$ExpectedVersion = "' + $verValue + '"' ) + $DetectionScriptContent[$insertAt..($DetectionScriptContent.Count - 1)]
-    }
+}
 
     $GeneratedDetectPath = Join-Path $DetectionScriptPath "winget-detect.generated.ps1"
     $DetectionScriptContent | Set-Content -Path $GeneratedDetectPath -Force
