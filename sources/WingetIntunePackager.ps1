@@ -541,6 +541,159 @@ function Get-WingetAppInfo ($AppID, $AppVersion) {
     Invoke-WebRequest -Uri $IconUrl -OutFile $($AppInfo.Icon)
 }
 
+# --- WinGet dependency app (used as Intune dependency for all WIP-packaged apps) ---
+$Script:WinGetDependencyDisplayName = "WinGet Dependency for WIP"
+$Script:WinGetDependencyIconUrl = "https://raw.githubusercontent.com/microsoft/winget-cli/master/.github/images/WindowsPackageManager_Assets/ICO/PNG/_256.png"
+
+function Invoke-WIPGraphPatchMobileApp {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)][string]$Id,
+        [Parameter(Mandatory=$true)][hashtable]$Body,
+        [ValidateSet("beta","v1.0")][string]$ApiVersion = "beta"
+    )
+
+    if ($Global:AuthenticationHeader -eq $null) {
+        throw "Authentication token was not found. Use Connect-MSIntuneGraph before using this function."
+    }
+
+    $uri = "https://graph.microsoft.com/$ApiVersion/deviceAppManagement/mobileApps/$Id"
+    $json = $Body | ConvertTo-Json -Depth 20
+    Write-Verbose "PATCH $uri"
+    Invoke-RestMethod -Uri $uri -Headers $Global:AuthenticationHeader -Method Patch -Body $json -ContentType "application/json"
+}
+
+function Ensure-WIPWinGetDependencyApp {
+    <#
+      Ensures an Intune Win32 app named "WinGet Dependency for WIP" exists.
+      - If present: updates the .intunewin package file and patches detection script + key properties.
+      - If missing: creates it.
+      Returns: App ID (GUID)
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$false)][string]$WingetInstallRepoPath
+    )
+
+    if (-not $WingetInstallRepoPath) {
+        if (!(Test-Path "$Location/Winget-Install*")) { Get-GithubRepository $WIGithubLink }
+        $WingetInstallRepoPath = (Get-Item "$Location\Winget-Install*").FullName
+    }
+
+    $depSetupFile = "Install-Winget.ps1"
+    $depDetectFile = "Detect-Winget.ps1"
+    $depSetupPath  = Join-Path $WingetInstallRepoPath $depSetupFile
+    $depDetectPath = Join-Path $WingetInstallRepoPath $depDetectFile
+
+    if (-not (Test-Path $depSetupPath)) { throw "Missing dependency installer script: $depSetupPath" }
+    if (-not (Test-Path $depDetectPath)) { throw "Missing dependency detection script: $depDetectPath" }
+
+    # Download icon locally (module expects a file)
+    $depIconPath = Join-Path $WingetInstallRepoPath "WinGetDependencyForWIP_256.png"
+    try {
+        if (-not (Test-Path $depIconPath)) {
+            Invoke-WebRequest -Uri $Script:WinGetDependencyIconUrl -OutFile $depIconPath -UseBasicParsing
+        }
+    }
+    catch {
+        # Icon is optional; continue without it
+        $depIconPath = $null
+    }
+
+    $depIcon = $null
+    if ($depIconPath -and (Test-Path $depIconPath)) {
+        try { $depIcon = New-IntuneWin32AppIcon -FilePath $depIconPath } catch { $depIcon = $null }
+    }
+
+    # Package dependency into .intunewin
+    $depPackage = New-IntuneWin32AppPackage -SourceFolder $WingetInstallRepoPath -SetupFile $depSetupFile -OutputFolder $WingetInstallRepoPath
+    $depIntuneWin = $depPackage.Path
+
+    # Detection rule + requirement rule
+    $depDetectionRule = New-IntuneWin32AppDetectionRuleScript -ScriptFile $depDetectPath -EnforceSignatureCheck $false -RunAs32Bit $false
+    $depRequirementRule = New-IntuneWin32AppRequirementRule -Architecture "All" -MinimumSupportedWindowsRelease "W10_1607"
+
+    # Command lines (64-bit via sysnative)
+    $depInstallCmd = """%systemroot%\sysnative\WindowsPowerShell\v1.0\powershell.exe"" -NoProfile -ExecutionPolicy Bypass -File $depSetupFile"
+    $depUninstallCmd = """%systemroot%\sysnative\cmd.exe"" /c exit 0"
+
+    # Look for existing app
+    $existing = $null
+    try { $existing = Get-IntuneWin32App -DisplayName $Script:WinGetDependencyDisplayName | Select-Object -First 1 } catch { $existing = $null }
+
+    if ($existing -and $existing.id) {
+        # Update content (keep same ID)
+        try {
+            Update-IntuneWin32AppPackageFile -ID $existing.id -FilePath $depIntuneWin | Out-Null
+        } catch {
+            Write-Warning "Update-IntuneWin32AppPackageFile failed for WinGet dependency app ($($existing.id)): $($_.Exception.Message)"
+        }
+
+        # Patch detection rule + key properties (Graph PATCH)
+        $patch = @{
+            "@odata.type"        = "#microsoft.graph.win32LobApp"
+            "displayName"        = $Script:WinGetDependencyDisplayName
+            "description"        = "Installs/repairs WinGet (Microsoft.DesktopAppInstaller) and initializes sources. Used as dependency for WingetIntunePackager."
+            "publisher"          = "WingetIntunePackager"
+            "installCommandLine" = $depInstallCmd
+            "uninstallCommandLine" = $depUninstallCmd
+            "setupFilePath"      = $depSetupFile
+            "detectionRules"     = @($depDetectionRule)
+        }
+        if ($depIcon) { $patch.largeIcon = $depIcon }
+
+        try { Invoke-WIPGraphPatchMobileApp -Id $existing.id -Body $patch -ApiVersion "beta" | Out-Null } catch {}
+
+        return $existing.id
+    }
+
+    # Create new dependency app
+    $depArgs = @{
+        "DisplayName"           = $Script:WinGetDependencyDisplayName
+        "Description"           = "Installs/repairs WinGet (Microsoft.DesktopAppInstaller) and initializes sources. Used as dependency for WingetIntunePackager."
+        "Publisher"             = "WingetIntunePackager"
+        "FilePath"              = $depIntuneWin
+        "InstallCommandLine"    = $depInstallCmd
+        "UninstallCommandLine"  = $depUninstallCmd
+        "InstallExperience"     = "system"
+        "RestartBehavior"       = "suppress"
+        "DetectionRule"         = $depDetectionRule
+        "RequirementRule"       = $depRequirementRule
+        "AllowAvailableUninstall" = $false
+        "Verbose"               = $false
+    }
+    if ($depIcon) { $depArgs.Icon = $depIcon }
+
+    $created = Add-IntuneWin32App @depArgs
+    if ($created -and $created.id) { return $created.id }
+
+    # Fallback: resolve by display name
+    $created2 = Get-IntuneWin32App -DisplayName $Script:WinGetDependencyDisplayName | Select-Object -First 1
+    return $created2.id
+}
+
+function Ensure-WIPWin32AppDependency {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)][string]$TargetAppId,
+        [Parameter(Mandatory=$true)][string]$DependencyAppId
+    )
+
+    try {
+        $rels = Get-IntuneWin32AppRelationship -ID $TargetAppId -Type Dependency
+        $already = $false
+        if ($rels -and $rels.relationships) {
+            foreach ($r in $rels.relationships) {
+                if ($r.targetId -eq $DependencyAppId) { $already = $true }
+            }
+        }
+        if ($already) { return }
+    } catch {}
+
+    $depObj = New-IntuneWin32AppDependency -ID $DependencyAppId -DependencyType "AutoInstall"
+    Add-IntuneWin32AppDependency -ID $TargetAppId -Dependency $depObj | Out-Null
+}
+
 function Invoke-IntunePackage ($Win32AppArgs) {
     # Package .intunewin file
     if (!(Test-Path "$Location/Winget-Install*")) {
@@ -549,6 +702,10 @@ function Invoke-IntunePackage ($Win32AppArgs) {
     $DetectionScriptPath = (Get-Item "$Location\Winget-Install*").FullName
     $DetectionScriptFile = "winget-detect.ps1"
     $DetectionScriptFullPath = Join-Path $DetectionScriptPath $DetectionScriptFile
+
+    # Ensure WinGet dependency app exists/updated (keeps WinGet install separate from app install scripts)
+    $WinGetDependencyAppId = Ensure-WIPWinGetDependencyApp -WingetInstallRepoPath $DetectionScriptPath
+
 
     # Keep a pristine template so repeated runs don't mangle the detection script
     $TemplateFile = "winget-detect.template.ps1"
@@ -663,7 +820,17 @@ if (-not $foundVer) {
     }
 
     try {
-        Add-IntuneWin32App @Win32AppArgs
+        $CreatedApp = Add-IntuneWin32App @Win32AppArgs
+        if ($CreatedApp -and $CreatedApp.id) {
+            Ensure-WIPWin32AppDependency -TargetAppId $CreatedApp.id -DependencyAppId $WinGetDependencyAppId
+        }
+        else {
+            # Fallback resolve by display name if module didn't return an object
+            try {
+                $tmp = Get-IntuneWin32App -DisplayName $Win32AppArgs.DisplayName | Select-Object -First 1
+                if ($tmp -and $tmp.id) { Ensure-WIPWin32AppDependency -TargetAppId $tmp.id -DependencyAppId $WinGetDependencyAppId }
+            } catch {}
+        }
     }
     finally {
         # Restore pristine detect script for the next run and remove generated file
