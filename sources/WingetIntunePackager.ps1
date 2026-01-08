@@ -263,7 +263,7 @@ function Start-InstallGUI {
     $CreateButton.add_click({
             Start-PopUp "Creating app to Intune... Please wait"
             $AppConfig = $($AppInfo.id)
-            $InstallUserContext = "system"
+            $InstallUserContext = "user"
             if ($VersionTextBox.Text) {
                 $AppConfig += " --version $($VersionTextBox.Text)"
             }
@@ -639,7 +639,8 @@ function Ensure-WIPWinGetDependencyApp {
             "uninstallCommandLine" = $depUninstallCmd
             "setupFilePath"      = $depSetupFile
             "detectionRules"     = @($depDetectionRule)
-        }
+                   "installExperience" = @{ "runAsAccount" = "user" }
+ }
         if ($depIcon) { $patch.largeIcon = $depIcon }
 
         try { Invoke-WIPGraphPatchMobileApp -Id $existing.id -Body $patch -ApiVersion "beta" | Out-Null } catch {}
@@ -655,7 +656,7 @@ function Ensure-WIPWinGetDependencyApp {
         "FilePath"              = $depIntuneWin
         "InstallCommandLine"    = $depInstallCmd
         "UninstallCommandLine"  = $depUninstallCmd
-        "InstallExperience"     = "system"
+        "InstallExperience"     = "user"
         "RestartBehavior"       = "suppress"
         "DetectionRule"         = $depDetectionRule
         "RequirementRule"       = $depRequirementRule
