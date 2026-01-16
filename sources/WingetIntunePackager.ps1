@@ -263,14 +263,14 @@ function Start-InstallGUI {
     $CreateButton.add_click({
             Start-PopUp "Creating app to Intune... Please wait"
             $AppConfig = $($AppInfo.id)
-            $InstallUserContext = "user"
+            $InstallUserContext = "system"
             if ($VersionTextBox.Text) {
                 $AppConfig += " --version $($VersionTextBox.Text)"
             }
             if ($OverrideTextBox.Text) {
                 $AppConfig += " --override \""$($OverrideTextBox.Text)\"""
             }
-            $InstallCmd = """%systemroot%\sysnative\WindowsPowerShell\v1.0\powershell.exe"" -NoProfile -ExecutionPolicy Bypass -File winget-install.ps1 -AppIDs ""$AppConfig"""
+            $InstallCmd = """%systemroot%\sysnative\WindowsPowerShell\v1.0\powershell.exe"" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File winget-install.ps1 -AppIDs ""$AppConfig"""
             if ($WhitelistCheckbox.IsChecked) {
                 $InstallCmd += " -WAUWhiteList"
             }
@@ -282,7 +282,7 @@ function Start-InstallGUI {
                 "AppVersion"           = $VersionTextBox.Text
                 "Notes"                = $WIGithubLink
                 "InstallCommandLine"   = $InstallCmd
-                "UninstallCommandLine" = """%systemroot%\sysnative\WindowsPowerShell\v1.0\powershell.exe"" -NoProfile -ExecutionPolicy Bypass -File winget-install.ps1 -AppIDs ""$($AppInfo.id)"" -Uninstall"
+                "UninstallCommandLine" = """%systemroot%\sysnative\WindowsPowerShell\v1.0\powershell.exe"" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File winget-install.ps1 -AppIDs ""$($AppInfo.id)"" -Uninstall"
                 "Verbose"              = $false
                 "AllowAvailableUninstall" = $AllowUninstallCheckbox.IsChecked
                 "InstallExperience" = $InstallUserContext
@@ -614,7 +614,7 @@ function Ensure-WIPWinGetDependencyApp {
     $depRequirementRule = New-IntuneWin32AppRequirementRule -Architecture "All" -MinimumSupportedWindowsRelease "W10_1607"
 
     # Command lines (64-bit via sysnative)
-    $depInstallCmd = """%systemroot%\sysnative\WindowsPowerShell\v1.0\powershell.exe"" -NoProfile -ExecutionPolicy Bypass -File $depSetupFile"
+    $depInstallCmd = """%systemroot%\sysnative\WindowsPowerShell\v1.0\powershell.exe"" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File $depSetupFile"
     $depUninstallCmd = """%systemroot%\sysnative\cmd.exe"" /c exit 0"
 
     # Look for existing app
@@ -639,7 +639,7 @@ function Ensure-WIPWinGetDependencyApp {
             "uninstallCommandLine" = $depUninstallCmd
             "setupFilePath"      = $depSetupFile
             "detectionRules"     = @($depDetectionRule)
-                   "installExperience" = @{ "runAsAccount" = "user" }
+            "installExperience" = @{ "runAsAccount" = "user" }
  }
         if ($depIcon) { $patch.largeIcon = $depIcon }
 
